@@ -1,80 +1,54 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 let books = require("./booksdb.js");
-const regd_users = express.Router();
+let isValid = require("./auth_users.js").isValid;
+let users = require("./auth_users.js").users;
+const public_users = express.Router();
 
-let users = [];
-
-const isValid = (username)=>{ //returns boolean
-  let userswithsamename = users.filter((user)=>{
-    return user.username === username
-  });
-  if(userswithsamename.length > 0){
-    return true;
-  } else {
-    return false;
-  }
-}
-
-const authenticatedUser = (username,password)=>{ //returns boolean
-  let validusers = users.filter((user)=>{
-    return (user.username === username && user.password === password)
-  });
-  if(validusers.length > 0){
-    return true;
-  } else {
-    return false;
-  }
-}
-
-//only registered users can login (Tarea 8)
-regd_users.post("/login", (req,res) => {
+// Tarea 7: Registrar nuevo usuario
+public_users.post("/register", (req,res) => {
   const username = req.body.username;
   const password = req.body.password;
 
-  if (!username || !password) {
-      return res.status(404).json({message: "Error logging in"});
-  }
-
-  if (authenticatedUser(username,password)) {
-    let accessToken = jwt.sign({
-      data: password
-    }, 'access', { expiresIn: 60 * 60 });
-
-    req.session.authorization = {
-      accessToken,username
+  if (username && password) {
+    if (!isValid(username)) { 
+      users.push({"username":username,"password":password});
+      return res.status(200).json({message: "Customer successfully registered. Now you can login"});
+    } else {
+      return res.status(404).json({message: "User already exists!"});
     }
-    return res.status(200).send("Customer successfully logged in");
-  } else {
-    return res.status(208).json({message: "Invalid Login. Check username and password"});
   }
+  return res.status(404).json({message: "Unable to register user."});
 });
 
-// Add or modify a book review (Tarea 9)
-regd_users.put("/auth/review/:isbn", (req, res) => {
+// Tarea 2: Obtener todos los libros
+public_users.get('/',function (req, res) {
+  return res.status(200).send(JSON.stringify(books, null, 4));
+});
+
+// Tarea 3: Obtener libro por ISBN
+public_users.get('/isbn/:isbn',function (req, res) {
   const isbn = req.params.isbn;
-  const review = req.body.review;
-  const username = req.session.authorization.username;
-
-  if (books[isbn]) {
-      books[isbn].reviews[username] = review;
-      return res.status(200).send(`The review for the book with ISBN ${isbn} has been added/updated.`);
-  }
-  return res.status(404).json({message: "Book not found"});
+  return res.status(200).send(books[isbn]);
+});
+  
+// Tarea 4: Obtener libro por autor
+public_users.get('/author/:author',function (req, res) {
+  const author = req.params.author;
+  let filtered_books = Object.values(books).filter((book) => book.author === author);
+  return res.status(200).send(JSON.stringify(filtered_books, null, 4));
 });
 
-// Delete a book review (Tarea 10)
-regd_users.delete("/auth/review/:isbn", (req, res) => {
+// Tarea 5: Obtener libro por título
+public_users.get('/title/:title',function (req, res) {
+  const title = req.params.title;
+  let filtered_books = Object.values(books).filter((book) => book.title === title);
+  return res.status(200).send(JSON.stringify(filtered_books, null, 4));
+});
+
+// Tarea 6: Obtener la reseña de un libro
+public_users.get('/review/:isbn',function (req, res) {
   const isbn = req.params.isbn;
-  const username = req.session.authorization.username;
-
-  if (books[isbn]) {
-      delete books[isbn].reviews[username];
-      return res.status(200).send(`Reviews for the ISBN ${isbn} posted by the user ${username} deleted.`);
-  }
-  return res.status(404).json({message: "Book not found"});
+  return res.status(200).send(books[isbn].reviews);
 });
 
-module.exports.authenticated = regd_users;
-module.exports.isValid = isValid;
-module.exports.users = users;
+module.exports.general = public_users;
