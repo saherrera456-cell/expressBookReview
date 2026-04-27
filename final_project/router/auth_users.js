@@ -13,18 +13,46 @@ const authenticatedUser = (username,password)=>{ //returns boolean
 //write code to check if username and password match the one we have in records.
 }
 
-//only registered users can login
 regd_users.post("/login", (req,res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
-});
+  const username = req.body.username;
+  const password = req.body.password;
 
-// Add a book review
+  if (!username || !password) {
+      return res.status(404).json({message: "Error logging in"});
+  }
+
+  // Verifica si el usuario existe (usa una función auxiliar si la tienes, o directamente el array)
+  if (users.find((user) => user.username === username && user.password === password)) {
+    let accessToken = jwt.sign({
+      data: password
+    }, 'access', { expiresIn: 60 * 60 });
+
+    req.session.authorization = {
+      accessToken,username
+    }
+    return res.status(200).send("Customer successfully logged in");
+  } else {
+    return res.status(208).json({message: "Invalid Login. Check username and password"});
+  }
+});
 regd_users.put("/auth/review/:isbn", (req, res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
-});
+  const isbn = req.params.isbn;
+  const review = req.body.review;
+  const username = req.session.authorization.username;
 
-module.exports.authenticated = regd_users;
-module.exports.isValid = isValid;
-module.exports.users = users;
+  if (books[isbn]) {
+      books[isbn].reviews[username] = review;
+      return res.status(200).send(`The review for the book with ISBN ${isbn} has been added/updated.`);
+  }
+  return res.status(404).json({message: "Book not found"});
+});
+regd_users.delete("/auth/review/:isbn", (req, res) => {
+  const isbn = req.params.isbn;
+  const username = req.session.authorization.username;
+
+  if (books[isbn]) {
+      delete books[isbn].reviews[username];
+      return res.status(200).send(`Reviews for the ISBN ${isbn} posted by the user ${username} deleted.`);
+  }
+  return res.status(404).json({message: "Book not found"});
+});
